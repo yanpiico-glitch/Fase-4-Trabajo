@@ -1,41 +1,44 @@
 # Fase-4-Trabajo
 Desarrollo de la actividad correspondiente de la actividad de la fase 4 repositorio
 
-import abc
-import logging
-from datetime import datetime
+import abc #Librería obligatoria para implementar Abstracción (Clases y métodos abstractos)
+import logging  # Librería para el sistema de audiotoria y archivos
+from datetime import datetime  # Módulo para capturar la fecha y hora exacta del sistema
 from typing import List
 
 
 logging.basicConfig(
-    filename='sistema_software_fj.log',
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    encoding='utf-8'
+    filename='sistema_software_fj.log',  # Nombre del archivo donde se guardará la bitácora
+    level=logging.INFO,           # Nivel mínimo de reportes a capturar
+    format='%(asctime)s - %(levelname)s - %(message)s',  # Estructura del log: Fecha - importancia - Mensaje
+    encoding='utf-8'  # Soporte para caracteres en español (tildes y la letra Ñ)
 )
 
 def registrar_log(mensaje: str, es_error: bool = False):
     print(mensaje)
     if es_error:
-        logging.error(mensaje)
+        logging.error(mensaje) 
     else:
         logging.info(mensaje)
 
-class SoftwareFJException(Exception):
+class SoftwareFJException(Exception): #Clase madre para todas las excepciones del programa
     pass
 
-class DatoInvalidoException(SoftwareFJException):
+class DatoInvalidoException(SoftwareFJException): #Se activa cuando entran datos que no cumples con las reglas
     pass
 
-class ServicioNoDisponibleException(SoftwareFJException):
+class ServicioNoDisponibleException(SoftwareFJException): #Se activa cuando solicitan un servicio inactivo o en mantenimiento
     pass
 
-class ReservaInvalidaException(SoftwareFJException):
+class ReservaInvalidaException(SoftwareFJException): #Se activa cuando una transaccion de reserva falla en las reglas de limites o calculos
     pass
 
+#------------------------------------------------------------------------
+# CLASE BASE DEL SISTEMA
+#------------------------------------------------------------------------
 
 class EntidadBase(abc.ABC):
-    def __init__(self, id_entidad: str):
+    def __init__(self, id_entidad: str):  # No permite ID vacion o con espacios
         if not id_entidad or not id_entidad.strip():
             raise DatoInvalidoException("El ID de la entidad no puede estar vacío.")
         self._id_entidad = id_entidad.strip()
@@ -49,7 +52,9 @@ class EntidadBase(abc.ABC):
     def obtener_detalles(self) -> str:
         pass
 
-
+#---------------------------------------------------------------------------------------------
+# CLASE CLIENTE
+#--------------------------------------------------------------------------------------
 class Cliente(EntidadBase):
     def __init__(self, id_cliente: str, nombre: str, correo: str):
         super().__init__(id_cliente)
@@ -79,7 +84,9 @@ class Cliente(EntidadBase):
     def obtener_detalles(self) -> str:
         return f"Cliente ID: {self.id_entidad} | Nombre: {self.nombre} | Correo: {self.correo}"
 
-
+#----------------------------------------------------------------------------------
+# POLIMORFISMO Y HERENCIA
+#--------------------------------------------------------------------------------------
 class Servicio(abc.ABC):
     def __init__(self, id_servicio: str, nombre_servicio: str, costo_base: float):
         if costo_base < 0:
@@ -87,7 +94,7 @@ class Servicio(abc.ABC):
         self._id_servicio = id_servicio
         self._nombre_servicio = nombre_servicio
         self._costo_base = costo_base
-        self._disponible = True
+        self._disponible = True # Determina si el servicio esta activo para el publico o no 
 
     @property
     def id_servicio(self) -> str:
@@ -114,7 +121,9 @@ class Servicio(abc.ABC):
         if horas <= 0:
             raise DatoInvalidoException("La duración del servicio debe ser mayor a 0 horas.")
 
-
+#----------------------------------------------------------------------------------
+# Reserva de salas
+#----------------------------------------------------------------------------------
 class ReservaSala(Servicio):
     def __init__(self, id_servicio: str, capacidad_personas: int, costo_base: float = 50.0):
         super().__init__(id_servicio, "Reserva de Sala", costo_base)
@@ -123,19 +132,21 @@ class ReservaSala(Servicio):
         self.capacidad_personas = capacidad_personas
 
     def validar_parametros(self, horas: int):
-        super().validar_parametros(horas)
-        if horas > 12:
+        super().validar_parametros(horas) # Valida que las horas sean mayores a cero
+        if horas > 12: # No se permite rentar la sala mas de medio dia seguido
             raise DatoInvalidoException("No se puede reservar una sala por más de 12 horas continuas.")
 
     def calcular_costo(self, horas: int, descuento: float = 0.0) -> float:
-        self.validar_parametros(horas)
+        self.validar_parametros(horas) 
         costo_total = (self._costo_base * horas) + (self.capacidad_personas * 2)
         return round(costo_total * (1 - descuento), 2)
 
     def describir_servicio(self) -> str:
         return f"Sala (ID: {self.id_servicio}) - Capacidad: {self.capacidad_personas} personas."
 
-
+#----------------------------------------------------------------------------
+# Alquiler de equipo tecnologico
+#----------------------------------------------------------------------------
 class AlquilerEquipo(Servicio):
     def __init__(self, id_servicio: str, tipo_equipo: str, costo_base: float):
         super().__init__(id_servicio, f"Alquiler de {tipo_equipo}", costo_base)
@@ -154,7 +165,9 @@ class AlquilerEquipo(Servicio):
     def describir_servicio(self) -> str:
         return f"Equipo (ID: {self.id_servicio}) - Tipo: {self.tipo_equipo}."
 
-
+#---------------------------------------------------------------------------
+#Asersoria eprofesional
+#---------------------------------------------------------------------------
 class AsesoriaEspecializada(Servicio):
     def __init__(self, id_servicio: str, consultor: str, costo_base: float = 120.0):
         super().__init__(id_servicio, "Asesoría Especializada", costo_base)
@@ -173,7 +186,9 @@ class AsesoriaEspecializada(Servicio):
     def describir_servicio(self) -> str:
         return f"Asesoría (ID: {self.id_servicio}) - Consultor: {self.consultor}."
 
-
+#-----------------------------------------------------------------------
+# Control
+#-----------------------------------------------------------------------
 class Reserva:
     def __init__(self, id_reserva: str, cliente: Cliente, servicio: Servicio, horas: int, descuento: float = 0.0):
         self.id_reserva = id_reserva
@@ -204,7 +219,9 @@ class Reserva:
         finally:
             registrar_log(f"--- Fin de la Transacción de la Reserva {self.id_reserva} ---")
 
-
+#----------------------------------------------------------------
+#Operaciones requeridas
+#----------------------------------------------------------------
 
 def ejecutar_simulador():
     registrar_log("=================================================================")
