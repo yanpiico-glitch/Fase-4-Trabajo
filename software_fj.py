@@ -336,6 +336,19 @@ def ejecutar_simulador():
         reserva4.procesar_confirmacion()
     except ReservaInvalidaException:
         pass
+    # Op 11: Cancelación de reserva confirmada
+    registrar_log("\n[Op 11] Cancelando una reserva confirmada...")
+    try:
+        reserva1.cancelar("Solicitud del cliente")
+    except ReservaInvalidaException:
+        pass
+
+    # Op 12: Intento de cancelar una reserva fallida
+    registrar_log("\n[Op 12] Intentando cancelar una reserva fallida...")
+    try:
+        reserva2.cancelar("Prueba de cancelación inválida")
+    except ReservaInvalidaException:
+        pass
 
     registrar_log("\n=================================================================")
     registrar_log("  SIMULACIÓN FINALIZADA - PROGRAMA SE MANTUVO ACTIVO Y ESTABLE   ")
