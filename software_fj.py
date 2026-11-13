@@ -64,9 +64,25 @@ class Cliente(EntidadBase):
 
     @nombre.setter
     def nombre(self, valor: str):
-        if not valor or len(valor.strip()) < 3:
-            raise DatoInvalidoException("El nombre del cliente debe tener al menos 3 caracteres.")
-        self._nombre = valor.strip()
+        if not isinstance(valor, str):
+            raise DatoInvalidoException("El nombre debe ser un texto.")
+
+        valor = valor.strip()
+
+        if len(valor) < 3:
+            raise DatoInvalidoException(
+                "El nombre debe tener al menos 3 caracteres."
+            )
+
+        if not all(
+            caracter.isalpha() or caracter.isspace() or caracter in "-'"
+            for caracter in valor
+        ):
+            raise DatoInvalidoException(
+                "El nombre contiene caracteres no permitidos."
+            )
+
+        self._nombre = valor
 
     @property
     def correo(self) -> str:
@@ -74,9 +90,25 @@ class Cliente(EntidadBase):
 
     @correo.setter
     def correo(self, valor: str):
-        if "@" not in valor or "." not in valor:
-            raise DatoInvalidoException(f"El correo electrónico '{valor}' no tiene un formato válido.")
-        self._correo = valor.strip()
+        if not isinstance(valor, str):
+            raise DatoInvalidoException("El correo electrónico debe ser un texto.")
+
+        valor = valor.strip()
+
+        if (
+            not valor
+            or "@" not in valor
+            or valor.count("@") != 1
+            or "." not in valor.split("@")[1]
+            or valor.startswith("@")
+            or valor.endswith(".")
+            or " " in valor
+        ):
+            raise DatoInvalidoException(
+                f"El correo electrónico '{valor}' no tiene un formato válido."
+            )
+
+        self._correo = valor
 
     def obtener_detalles(self) -> str:
         return f"Cliente ID: {self.id_entidad} | Nombre: {self.nombre} | Correo: {self.correo}"
@@ -86,12 +118,30 @@ class Cliente(EntidadBase):
 #--------------------------------------------------------------------------------------
 class Servicio(abc.ABC):
     def __init__(self, id_servicio: str, nombre_servicio: str, costo_base: float):
-        if costo_base < 0:
-            raise DatoInvalidoException("El costo base no puede ser negativo.")
-        self._id_servicio = id_servicio
-        self._nombre_servicio = nombre_servicio
+
+        if not isinstance(id_servicio, str) or not id_servicio.strip():
+            raise DatoInvalidoException(
+                "El ID del servicio debe ser un texto válido."
+            )
+
+        if not isinstance(nombre_servicio, str) or not nombre_servicio.strip():
+            raise DatoInvalidoException(
+                "El nombre del servicio debe ser un texto válido."
+            )
+
+        if (
+            not isinstance(costo_base, (int, float))
+            or isinstance(costo_base, bool)
+            or costo_base < 0
+        ):
+            raise DatoInvalidoException(
+                "El costo base debe ser un número positivo o cero."
+            )
+
+        self._id_servicio = id_servicio.strip()
+        self._nombre_servicio = nombre_servicio.strip()
         self._costo_base = costo_base
-        self._disponible = True # Determina si el servicio esta activo para el publico o no 
+        self._disponible = True
 
     @property
     def id_servicio(self) -> str:
@@ -103,29 +153,60 @@ class Servicio(abc.ABC):
 
     @disponible.setter
     def disponible(self, estado: bool):
+        if not isinstance(estado, bool):
+            raise DatoInvalidoException(
+                "El estado de disponibilidad debe ser verdadero o falso."
+            )
         self._disponible = estado
 
+    def validar_descuento(self, descuento: float):
+        if (
+            not isinstance(descuento, (int, float))
+            or isinstance(descuento, bool)
+            or descuento < 0
+            or descuento > 1
+        ):
+            raise DatoInvalidoException(
+                "El descuento debe estar entre 0 y 1 (0% a 100%)."
+        )
+        
     @abc.abstractmethod
-    def calcular_costo(self, horas: int, descuento: float = 0.0) -> float:
+    def calcular_costo(
+        self,
+        horas: int,
+        descuento: float = 0.0,
+        impuesto: float = 0.0
+    ) -> float:
         pass
 
     @abc.abstractmethod
     def describir_servicio(self) -> str:
         pass
 
-    @abc.abstractmethod
     def validar_parametros(self, horas: int):
-        if horas <= 0:
-            raise DatoInvalidoException("La duración del servicio debe ser mayor a 0 horas.")
-
+        if (
+            not isinstance(horas, int)
+            or isinstance(horas, bool)
+            or horas <= 0
+        ):
+            raise DatoInvalidoException(
+                "La duración del servicio debe ser un número entero mayor a 0 horas."
+            )
+        
 #----------------------------------------------------------------------------------
 # Reserva de salas
 #----------------------------------------------------------------------------------
 class ReservaSala(Servicio):
     def __init__(self, id_servicio: str, capacidad_personas: int, costo_base: float = 50.0):
         super().__init__(id_servicio, "Reserva de Sala", costo_base)
-        if capacidad_personas <= 0:
-            raise DatoInvalidoException("La capacidad de la sala debe ser mayor a cero.")
+        if (
+            not isinstance(capacidad_personas, int)
+            or isinstance(capacidad_personas, bool)
+            or capacidad_personas <= 0
+        ):
+            raise DatoInvalidoException(
+                "La capacidad de la sala debe ser un número entero mayor a cero."
+            )
         self.capacidad_personas = capacidad_personas
 
     def validar_parametros(self, horas: int):
@@ -133,10 +214,30 @@ class ReservaSala(Servicio):
         if horas > 12: # No se permite rentar la sala mas de medio dia seguido
             raise DatoInvalidoException("No se puede reservar una sala por más de 12 horas continuas.")
 
-    def calcular_costo(self, horas: int, descuento: float = 0.0) -> float:
-        self.validar_parametros(horas) 
+    def calcular_costo(
+        self,
+        horas: int,
+        descuento: float = 0.0,
+        impuesto: float = 0.0
+    ) -> float:
+        self.validar_parametros(horas)
+        self.validar_descuento(descuento)
+
+        if (
+            not isinstance(impuesto, (int, float))
+            or isinstance(impuesto, bool)
+            or impuesto < 0
+            or impuesto > 1
+        ):
+            raise DatoInvalidoException(
+                "El impuesto debe estar entre 0 y 1 (0% a 100%)."
+            )
+        
         costo_total = (self._costo_base * horas) + (self.capacidad_personas * 2)
-        return round(costo_total * (1 - descuento), 2)
+        costo_con_descuento = costo_total * (1 - descuento)
+        costo_final = costo_con_descuento * (1 + impuesto)
+
+        return round(costo_final, 2)
 
     def describir_servicio(self) -> str:
         return f"Sala (ID: {self.id_servicio}) - Capacidad: {self.capacidad_personas} personas."
@@ -147,17 +248,42 @@ class ReservaSala(Servicio):
 class AlquilerEquipo(Servicio):
     def __init__(self, id_servicio: str, tipo_equipo: str, costo_base: float):
         super().__init__(id_servicio, f"Alquiler de {tipo_equipo}", costo_base)
-        self.tipo_equipo = tipo_equipo
+        if not isinstance(tipo_equipo, str) or not tipo_equipo.strip():
+            raise DatoInvalidoException(
+                "El tipo de equipo debe ser un texto válido."
+            )
+
+        self.tipo_equipo = tipo_equipo.strip()
 
     def validar_parametros(self, horas: int):
         super().validar_parametros(horas)
         if horas < 2:
             raise DatoInvalidoException("El tiempo mínimo de alquiler de equipos es de 2 horas.")
 
-    def calcular_costo(self, horas: int, descuento: float = 0.0) -> float:
+    def calcular_costo(
+        self,
+        horas: int,
+        descuento: float = 0.0,
+        impuesto: float = 0.0
+    ) -> float:
         self.validar_parametros(horas)
+        self.validar_descuento(descuento)
+
+        if (
+            not isinstance(impuesto, (int, float))
+            or isinstance(impuesto, bool)
+            or impuesto < 0
+            or impuesto > 1
+        ):
+            raise DatoInvalidoException(
+                "El impuesto debe estar entre 0 y 1 (0% a 100%)."
+            )
+
         costo_total = (self._costo_base * horas) * 1.05
-        return round(costo_total * (1 - descuento), 2)
+        costo_con_descuento = costo_total * (1 - descuento)
+        costo_final = costo_con_descuento * (1 + impuesto)
+
+        return round(costo_final, 2)
 
     def describir_servicio(self) -> str:
         return f"Equipo (ID: {self.id_servicio}) - Tipo: {self.tipo_equipo}."
@@ -168,17 +294,43 @@ class AlquilerEquipo(Servicio):
 class AsesoriaEspecializada(Servicio):
     def __init__(self, id_servicio: str, consultor: str, costo_base: float = 120.0):
         super().__init__(id_servicio, "Asesoría Especializada", costo_base)
-        self.consultor = consultor
+
+        if not isinstance(consultor, str) or not consultor.strip():
+            raise DatoInvalidoException(
+                "El nombre del consultor debe ser un texto válido."
+            )
+
+        self.consultor = consultor.strip()
 
     def validar_parametros(self, horas: int):
         super().validar_parametros(horas)
         if horas > 4:
             raise DatoInvalidoException("Las asesorías no pueden exceder las 4 horas continuas.")
 
-    def calcular_costo(self, horas: int, descuento: float = 0.0) -> float:
+    def calcular_costo(
+        self,
+        horas: int,
+        descuento: float = 0.0,
+        impuesto: float = 0.0
+    ) -> float:
         self.validar_parametros(horas)
+        self.validar_descuento(descuento)
+
+        if (
+            not isinstance(impuesto, (int, float))
+            or isinstance(impuesto, bool)
+            or impuesto < 0
+            or impuesto > 1
+        ):
+            raise DatoInvalidoException(
+                "El impuesto debe estar entre 0 y 1 (0% a 100%)."
+            )
+        
         costo_total = self._costo_base * horas
-        return round(costo_total * (1 - descuento), 2)
+        costo_con_descuento = costo_total * (1 - descuento)
+        costo_final = costo_con_descuento * (1 + impuesto)
+
+        return round(costo_final, 2)
 
     def describir_servicio(self) -> str:
         return f"Asesoría (ID: {self.id_servicio}) - Consultor: {self.consultor}."
@@ -187,12 +339,36 @@ class AsesoriaEspecializada(Servicio):
 # Control
 #-----------------------------------------------------------------------
 class Reserva:
-    def __init__(self, id_reserva: str, cliente: Cliente, servicio: Servicio, horas: int, descuento: float = 0.0):
-        self.id_reserva = id_reserva
+    def __init__(
+        self,
+        id_reserva: str,
+        cliente: Cliente,
+        servicio: Servicio,
+        horas: int,
+        descuento: float = 0.0,
+        impuesto: float = 0.0
+    ):
+        if not isinstance(id_reserva, str) or not id_reserva.strip():
+            raise DatoInvalidoException(
+                "El identificador de la reserva debe ser un texto válido."
+            )
+
+        if not isinstance(cliente, Cliente):
+            raise DatoInvalidoException(
+                "La reserva debe estar asociada a un cliente válido."
+            )
+
+        if not isinstance(servicio, Servicio):
+            raise DatoInvalidoException(
+                "La reserva debe estar asociada a un servicio válido."
+            )
+
+        self.id_reserva = id_reserva.strip()
         self.cliente = cliente
         self.servicio = servicio
         self.horas = horas
         self.descuento = descuento
+        self.impuesto = impuesto
         self.estado = "PENDIENTE"
         self.costo_final = 0.0
 
@@ -201,7 +377,11 @@ class Reserva:
         try:
             if not self.servicio.disponible:
                 raise ServicioNoDisponibleException(f"El servicio '{self.servicio.id_servicio}' se encuentra inactivo.")
-            self.costo_final = self.servicio.calcular_costo(self.horas, self.descuento)
+            self.costo_final = self.servicio.calcular_costo(
+                self.horas,
+                self.descuento,
+                self.impuesto
+            )
         except (ServicioNoDisponibleException, DatoInvalidoException) as error_origen:
             self.estado = "FALLIDA"
             mensaje_error = f"No se pudo confirmar la reserva {self.id_reserva}."
@@ -223,6 +403,12 @@ class Reserva:
                     f"No se puede cancelar la reserva {self.id_reserva} "
                     f"porque su estado es {self.estado}."
                 )
+            if not isinstance(motivo, str) or not motivo.strip():
+                raise ReservaInvalidaException(
+                    "Debe proporcionar un motivo de cancelación válido."
+                )
+
+            motivo = motivo.strip()
 
             self.estado = "CANCELADA"
             registrar_log(
@@ -248,6 +434,7 @@ def ejecutar_simulador():
     
     lista_clientes: List[Cliente] = []
     lista_servicios: List[Servicio] = []
+    lista_reservas: List[Reserva] = []
 
     # Op 1
     registrar_log("[Op 1] Intentando registrar un Cliente Válido...")
@@ -308,6 +495,7 @@ def ejecutar_simulador():
     registrar_log("\n[Op 7] Solicitando Reserva Válida para Sala (5 horas, 10% desc)...")
     try:
         reserva1 = Reserva("R01", c1, s1, horas=5, descuento=0.10)
+        lista_reservas.append(reserva1)
         reserva1.procesar_confirmacion()
     except ReservaInvalidaException:
         pass
@@ -316,6 +504,7 @@ def ejecutar_simulador():
     registrar_log("\n[Op 8] Solicitando Reserva Inválida (Excede límite de 12 horas en Sala)...")
     try:
         reserva2 = Reserva("R02", c1, s1, horas=24)
+        lista_reservas.append(reserva2)
         reserva2.procesar_confirmacion()
     except ReservaInvalidaException:
         pass
@@ -325,6 +514,7 @@ def ejecutar_simulador():
     try:
         s2.disponible = False
         reserva3 = Reserva("R03", c1, s2, horas=4)
+        lista_reservas.append(reserva3)
         reserva3.procesar_confirmacion()
     except ReservaInvalidaException:
         pass
@@ -332,10 +522,19 @@ def ejecutar_simulador():
     # Op 10
     registrar_log("\n[Op 10] Solicitando Reserva Válida para Asesoría Técnica (3 horas)...")
     try:
-        reserva4 = Reserva("R04", c1, s3, horas=3)
+        reserva4 = Reserva(
+            "R04",
+            c1,
+            s3,
+            horas=3,
+            descuento=0.10,
+            impuesto=0.19
+        )
+        lista_reservas.append(reserva4)
         reserva4.procesar_confirmacion()
     except ReservaInvalidaException:
         pass
+
     # Op 11: Cancelación de reserva confirmada
     registrar_log("\n[Op 11] Cancelando una reserva confirmada...")
     try:
