@@ -215,6 +215,27 @@ class Reserva:
             registrar_log(f"         Costo total liquidado: ${self.costo_final}")
         finally:
             registrar_log(f"--- Fin de la Transacción de la Reserva {self.id_reserva} ---")
+            
+    def cancelar(self, motivo: str = "Sin especificar"):
+        try:
+            if self.estado != "CONFIRMADA":
+                raise ReservaInvalidaException(
+                    f"No se puede cancelar la reserva {self.id_reserva} "
+                    f"porque su estado es {self.estado}."
+                )
+
+            self.estado = "CANCELADA"
+            registrar_log(
+                f"[CANCELACIÓN]: Reserva {self.id_reserva} cancelada. "
+                f"Motivo: {motivo}"
+            )
+
+        except ReservaInvalidaException as error:
+            registrar_log(
+                f"[ERROR CONTROLADO]: {error}",
+                es_error=True
+            )
+            raise
 
 #----------------------------------------------------------------
 #Operaciones requeridas
